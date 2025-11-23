@@ -41,3 +41,37 @@ function ai_seo_generate_description_with_gemini($content) {
 
     return $body['candidates'][0]['content']['parts'][0]['text'] ?? false;
 }
+
+add_action('wp_ajax_ai_seo_generate_product_meta', function () {
+
+    $product_id = intval($_POST['product_id']);
+
+    $product = wc_get_product($product_id);
+
+    if (!$product) {
+        wp_send_json(['success' => false, 'message' => 'Invalid product']);
+    }
+
+    $content = $product->get_description() . "\n\n" . $product->get_short_description();
+
+    // Generate Meta Description
+    $description = ai_seo_generate_description_with_gemini($content);
+
+    // Generate SEO Title
+    $title_prompt = "Create a compelling 55-60 character SEO title for this product:\n\n" . $content;
+    $title = ai_seo_generate_description_with_gemini($title_prompt);
+
+    if (!$description || !$title) {
+        wp_send_json(['success' => false, 'message' => 'Failed to generate SEO data']);
+    }
+
+    // Save results
+    update_post_meta($product_id, '_ai_seo_title', $title);
+    update_post_meta($product_id, '_ai_seo_description', $description);
+
+    wp_send_json([
+        'success'     => true,
+        'title'       => $title,
+        'description' => $description
+    ]);
+});
